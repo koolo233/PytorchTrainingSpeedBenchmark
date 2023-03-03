@@ -1,4 +1,0 @@
-PARAMS: 10.6636MB, FLOPS: 1734.3130MB
-CUDA:0 (GeForce GTX 1650, 4096MiB)
-Avg time for each epoch 32.1349s
-Avg time for each step 0.0280s

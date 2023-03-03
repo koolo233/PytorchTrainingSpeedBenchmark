@@ -6,7 +6,7 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as transforms
 from torchvision import models
 import time
@@ -48,9 +48,26 @@ model_list = {
 
 parser = argparse.ArgumentParser(description='Params of Benchmark')
 
-parser.add_argument("-m", "--model_type", type=str, default="ResNet50", choices=model_list.keys())
+parser.add_argument("-m", "--model_type", type=str, default="AlexNet", choices=model_list.keys())
 parser.add_argument("-b", "--batch_size", type=int, default=64)
-parser.add_argument("-d", "--dataset_name", type=str, default="CIFAR10", choices=["CIFAR10"])
+parser.add_argument("-s", "--input_size", type=int, default=32)
+
+
+class MyDataset(Dataset):
+
+    def __init__(self, input_size=224, input_channel=3, data_n=50000):
+        super().__init__()
+        self.input_size = input_size
+        self.data_n = data_n
+        self.input_channel = input_channel
+
+    def __len__(self):
+        return self.data_n
+
+    def __getitem__(self, item):
+        img = torch.rand([self.input_channel, self.input_size, self.input_size])
+        label = torch.randint(0, 10, [1, ])[0]
+        return img, label
 
 
 def generate_random_str(length=30):
@@ -77,21 +94,23 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # image_transforms = transforms.Compose([transforms.ToTensor(), transforms.Resize(input_size)])
-    image_transforms = transforms.ToTensor()
+    image_transforms = transforms.Compose([transforms.Resize(224), transforms.ToTensor()])
+    # image_transforms = transforms.ToTensor()
 
     # load CIFA-10 data
-    train_dataset = torchvision.datasets.CIFAR10(
-        root='./data/',
-        train=True,
-        transform=image_transforms,
-        download=True)
-
-    test_dataset = torchvision.datasets.CIFAR10(
-        root='./data/',
-        train=False,
-        transform=image_transforms,
-        download=True)
+    train_dataset = MyDataset(input_size=args.input_size)
+    test_dataset = MyDataset(input_size=args.input_size, data_n=10000)
+    # train_dataset = torchvision.datasets.CIFAR10(
+    #     root='./data/',
+    #     train=True,
+    #     transform=image_transforms,
+    #     download=True)
+    #
+    # test_dataset = torchvision.datasets.CIFAR10(
+    #     root='./data/',
+    #     train=False,
+    #     transform=image_transforms,
+    #     download=True)
 
     print('train_dataset = ', len(train_dataset))
     print('test_dataset = ', len(test_dataset))
@@ -101,14 +120,14 @@ if __name__ == "__main__":
         dataset=train_dataset,
         batch_size=args.batch_size,
         shuffle=True,
-        num_workers=0,
+        num_workers=4,
         drop_last=True)
 
     test_loader = DataLoader(
         dataset=test_dataset,
         batch_size=args.batch_size,
         shuffle=False,
-        num_workers=0)
+        num_workers=4)
 
     net = model_list[args.model_type](num_classes=10)
     print(args.model_type)
@@ -123,7 +142,7 @@ if __name__ == "__main__":
         p = torch.cuda.get_device_properties(_id)
         device_name_str += f"_{p.name}"
     random_str = generate_random_str()
-    log_file_name = "./log/{}_{}{}_{}_{}.txt".format(args.model_type, args.dataset_name, device_name_str, args.batch_size, random_str)
+    log_file_name = "./log/{}_{}{}_{}_{}.txt".format(args.model_type, args.input_size, device_name_str, args.batch_size, random_str)
     with open(log_file_name, "a") as f: f.write(str(time.time()) + "\n")
 
     # optimizing
@@ -131,7 +150,7 @@ if __name__ == "__main__":
     optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
 
     # training
-    num_epochs = 2
+    num_epochs = 1
     train_loss_list, train_acc_list, val_loss_list, val_acc_list = [], [], [], []
 
     begin_time = time.time()
@@ -198,17 +217,22 @@ if __name__ == "__main__":
         f.write(log_str)
 
     print("-------------------------\n----- DEVICE ----- \n-------------------------")
+    device_name = None
     for _id in range(torch.cuda.device_count()):
         p = torch.cuda.get_device_properties(_id)
         info = f"CUDA:{_id} ({p.name}, {p.total_memory / (1 << 20):.0f}MiB)\n"
+        if _id == 0:
+            device_name = p.name
         print(info)
         with open(log_file_name, "a") as f:
             f.write(info)
 
     with open(log_file_name, "a") as f:
-        avg_epoch_str = "Avg time for each epoch {:.4f}s".format((end_time - begin_time) / num_epochs)
         avg_step_str = "Avg time for each step {:.4f}s".format(np.mean(time_step_list))
-        print(avg_epoch_str)
         print(avg_step_str)
-        f.write(avg_epoch_str + "\n")
         f.write(avg_step_str + "\n")
+
+    with open("./README.md", "a") as f:
+        str_1 = f"\n|{args.model_type}|{device_name}|{params / (1024 ** 2):.4f}|{args.input_size}"
+        str_2 = f"|{flops / (1024 ** 2):.4f}|{args.batch_size}|{np.mean(time_step_list):.4f}|"
+        f.write(str_1 + str_2)
