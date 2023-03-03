@@ -1,0 +1,4 @@
+PARAMS: 128.0880MB, FLOPS: 14775.5903MB
+CUDA:0 (Tesla P40, 24576MiB)
+Avg time for each epoch 55.9433s
+Avg time for each step 0.0570s
