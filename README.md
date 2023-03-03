@@ -47,3 +47,4 @@ cmd：```python TrainingBenchmark.py {-m} {-b} {-d}```
 | VIT_l_16    | Nvidia Tesla P40 | -         | CIFAR10 | -          | -          | -                  | -                   |
 | VIT_l_32    | Nvidia Tesla P40 | -         | CIFAR10 | -          | -          | -                  | -                   |
 | SwinV2_b    | Nvidia Tesla P40 | 82.8897   | CIFAR10 | 16290.5107 | 128        | 0.4749             | 204.8639            |
+| ResNet18    | Nvidia GTX 1650  | 10.6636   | CIFAR10 | 1734.3130  | 64         | 0.0280             | 32.1349             |
