@@ -18,10 +18,10 @@ TIME EACH STEP是稳定之后的时间，此时间仅供参考，通常仅有前
 
 对于多卡并行，并行技术不同，效率会有非常大的区别
 
-cmd：```python TrainingBenchmark.py {-m} {-b} {-d}```
+cmd：```python TrainingBenchmark.py {-m} {-b} {-s}```
 * ```-m```: Model Name
 * ```-b```: Batch Size
-* ```-d```: Dataset Name
+* ```-s```: Input Size
 
 | MODEL       | DEVICE           | PARAMs/MB | INPUT SIZE | FLOPs/MB | BATCH_SIZE | TIME EACH STEP / s |
 |-------------|------------------|-----------|------------|----------|------------|--------------------|
