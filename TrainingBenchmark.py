@@ -188,7 +188,7 @@ if __name__ == "__main__":
         with open(log_file_name, "a") as f:
             time_step_list.append(step_end_time - step_begin_time)
             log_str = "Step: [{}/{}], Avg time for each step {:.4f}s" \
-                .format(i + 1, args.max_step, time_step_list[-1])
+                .format(i + 1, args.max_step, np.mean(time_step_list))
             print(log_str)
             f.write(log_str + "\n")
 
