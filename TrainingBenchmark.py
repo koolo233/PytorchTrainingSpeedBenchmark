@@ -46,6 +46,7 @@ basic_model_dict = {
 }
 
 version_str_list = torchvision.__version__.split(".")[:2]
+version_str = ".".join(version_str_list)
 
 if version_str_list[0] == "0":
     min_version = eval(version_str_list[1])
@@ -163,7 +164,9 @@ if __name__ == "__main__":
         device_name_str += f"_{p.name}"
     random_str = generate_random_str()
     log_file_name = "./log/{}_{}{}_{}_{}.txt".format(args.model_type, args.input_size, device_name_str, args.batch_size, random_str)
-    with open(log_file_name, "a") as f: f.write(str(time.time()) + "\n")
+    with open(log_file_name, "w") as f:
+        f.write(str(time.time()) + "\n")
+        f.write(version_str + "\n")
 
     # optimizing
     criterion = nn.CrossEntropyLoss()
@@ -220,5 +223,5 @@ if __name__ == "__main__":
 
     with open("./README.md", "a") as f:
         str_1 = f"\n|{args.model_type}|{device_name}|{params / (1024 ** 2):.4f}|{args.input_size}"
-        str_2 = f"|{flops / (1024 ** 2):.4f}|{args.batch_size}|{np.mean(time_step_list):.4f}|"
+        str_2 = f"|{flops / (1024 ** 2):.4f}|{args.batch_size}|{np.mean(time_step_list):.4f}|{version_str}|"
         f.write(str_1 + str_2)
