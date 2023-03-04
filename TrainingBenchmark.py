@@ -5,8 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
-import torchvision.transforms as transforms
 from torchvision import models
 import time
 import string
@@ -50,23 +48,7 @@ parser = argparse.ArgumentParser(description='Params of Benchmark')
 parser.add_argument("-m", "--model_type", type=str, default="AlexNet", choices=model_list.keys())
 parser.add_argument("-b", "--batch_size", type=int, default=64)
 parser.add_argument("-s", "--input_size", type=int, default=32)
-
-
-class MyDataset(Dataset):
-
-    def __init__(self, input_size=224, input_channel=3, data_n=50000):
-        super().__init__()
-        self.input_size = input_size
-        self.data_n = data_n
-        self.input_channel = input_channel
-
-    def __len__(self):
-        return self.data_n
-
-    def __getitem__(self, item):
-        img = torch.rand([self.input_channel, self.input_size, self.input_size])
-        label = torch.randint(0, 10, [1, ])[0]
-        return img, label
+parser.add_argument("--max_step", type=int, default=800)
 
 
 def generate_random_str(length=30):
@@ -93,41 +75,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    image_transforms = transforms.Compose([transforms.Resize(224), transforms.ToTensor()])
-    # image_transforms = transforms.ToTensor()
-
-    # load CIFA-10 data
-    train_dataset = MyDataset(input_size=args.input_size)
-    test_dataset = MyDataset(input_size=args.input_size, data_n=10000)
-    # train_dataset = torchvision.datasets.CIFAR10(
-    #     root='./data/',
-    #     train=True,
-    #     transform=image_transforms,
-    #     download=True)
-    #
-    # test_dataset = torchvision.datasets.CIFAR10(
-    #     root='./data/',
-    #     train=False,
-    #     transform=image_transforms,
-    #     download=True)
-
-    print('train_dataset = ', len(train_dataset))
-    print('test_dataset = ', len(test_dataset))
-
-    # set data loadser
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=4,
-        drop_last=True)
-
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=4)
-
     net = model_list[args.model_type](num_classes=10)
     print(args.model_type)
 
@@ -148,63 +95,28 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
 
-    # training
-    num_epochs = 1
-    train_loss_list, train_acc_list, val_loss_list, val_acc_list = [], [], [], []
-
     begin_time = time.time()
     time_step_list = list()
-    # training
-    for epoch in range(num_epochs):
-        train_loss, train_acc, val_loss, val_acc = 0, 0, 0, 0
+    images = torch.rand([args.batch_size, 3, args.input_size, args.input_size]).to(device)
+    labels = torch.randint(0, 10, [args.batch_size, ]).to(device)
 
-        # ====== train_mode ======
-        net.train()
-        for i, (images, labels) in enumerate(train_loader):
-            step_begin_time = time.time()
-            images, labels = images.to(device), labels.to(device)
-            optimizer.zero_grad()
-            outputs = net(images)
-            loss = criterion(outputs, labels)
-            train_loss += loss.item()
-            train_acc += (outputs.max(1)[1] == labels).sum().item()
-            loss.backward()
-            optimizer.step()
+    net.train()
+    for i in range(args.max_step):
+        step_begin_time = time.time()
 
-            step_end_time = time.time()
-            with open(log_file_name, "a") as f:
-                time_step_list.append(step_end_time - step_begin_time)
-                log_str = "Epoch [{}/{}], Step: [{}/{}], Avg time for each step {:.4f}s"\
-                    .format(epoch + 1, num_epochs, i + 1, len(train_loader), time_step_list[-1])
-                print(log_str)
-                f.write(log_str + "\n")
+        optimizer.zero_grad()
+        outputs = net(images)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
 
-        avg_train_loss = train_loss / len(train_loader.dataset)
-        avg_train_acc = train_acc / len(train_loader.dataset)
-
-        # ====== val_mode ======
-        net.eval()
-        with torch.no_grad():
-            for images, labels in test_loader:
-                images = images.to(device)
-                labels = labels.to(device)
-                outputs = net(images)
-                loss = criterion(outputs, labels)
-                val_loss += loss.item()
-                val_acc += (outputs.max(1)[1] == labels).sum().item()
-        avg_val_loss = val_loss / len(test_loader.dataset)
-        avg_val_acc = val_acc / len(test_loader.dataset)
-
-        end_time = time.time()
-
-        log_str = "Epoch [{}/{}], Time: [{:.4f}s], Loss: {loss:.4f}, val_loss: {val_loss:.4f}, val_acc: {val_acc:.4f}"\
-            .format(epoch + 1, num_epochs, end_time-begin_time, i + 1, loss=avg_train_loss, val_loss=avg_val_loss, val_acc=avg_val_acc)
-
-        print(log_str)
+        step_end_time = time.time()
         with open(log_file_name, "a") as f:
+            time_step_list.append(step_end_time - step_begin_time)
+            log_str = "Step: [{}/{}], Avg time for each step {:.4f}s" \
+                .format(i + 1, args.max_step, time_step_list[-1])
+            print(log_str)
             f.write(log_str + "\n")
-
-    end_time = time.time()
 
     print("-------------------------\n--- PARAMs & FLOPs --- \n-------------------------")
     test_tensor = torch.rand([1, 3, 224, 224]).to(device)
@@ -226,6 +138,7 @@ if __name__ == "__main__":
         with open(log_file_name, "a") as f:
             f.write(info)
 
+    print("-------------------------\n----- EACH STEP ----- \n-------------------------")
     with open(log_file_name, "a") as f:
         avg_step_str = "Avg time for each step {:.4f}s".format(np.mean(time_step_list))
         print(avg_step_str)
