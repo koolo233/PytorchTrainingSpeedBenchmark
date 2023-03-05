@@ -153,6 +153,9 @@ if __name__ == "__main__":
     net = model_dict[args.model_type](num_classes=10)
     print(args.model_type)
 
+    if not os.path.exists("./log"):
+        os.mkdir("./log")
+
     # select device
     num_classes = 10
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
