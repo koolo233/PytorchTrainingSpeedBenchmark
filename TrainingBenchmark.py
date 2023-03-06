@@ -185,8 +185,10 @@ if __name__ == "__main__":
         step_begin_time = time.time()
 
         optimizer.zero_grad()
-        if args.model_type == "GoogleNet" or args.model_type == "InceptionV3":
+        if args.model_type == "InceptionV3":
             outputs, auxs = net(images)
+        elif args.model_type == "GoogleNet":
+            outputs, auxs1, auxs2 = net(images)
         else:
             outputs = net(images)
         loss = criterion(outputs, labels)
