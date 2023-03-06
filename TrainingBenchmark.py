@@ -202,8 +202,8 @@ if __name__ == "__main__":
             f.write(log_str + "\n")
 
     print("-------------------------\n--- PARAMs & FLOPs --- \n-------------------------")
-    test_tensor = torch.rand([1, 3, 224, 224]).to(device)
-    flops = FlopCountAnalysis(net, test_tensor).total()
+    test_tensor = torch.rand([2, 3, args.input_size, args.input_size]).to(device)
+    flops = FlopCountAnalysis(net, test_tensor).total() / 2
     params = parameter_count(net)[""]
     with open(log_file_name, "a") as f:
         log_str = "PARAMS: {:.4f}MB, FLOPS: {:.4f}MB\n".format(params / (1024 ** 2), flops / (1024 ** 2))
