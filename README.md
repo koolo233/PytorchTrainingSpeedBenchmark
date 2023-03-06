@@ -81,3 +81,6 @@ cmd：```python TrainingBenchmark.py {-m} {-b} {-s}```
 |GoogleNet|Tesla P40|9.4992|224|1449.6922|64|0.1737|0.14|
 |SqueezeNet1_0|Tesla P40|0.7062|224|699.2946|64|0.1247|0.14|
 |SqueezeNet1_1|Tesla P40|0.6939|224|251.2845|64|0.0731|0.14|
+|MobileNetV3_l|Tesla P40|4.0196|224|226.9421|64|0.1548|0.14|
+|MobileNetV3_s|Tesla P40|1.4573|224|59.9614|64|0.0614|0.14|
+|EfficientNet_B7|Tesla P40|60.8564|224|5135.0641|32|0.9634|0.14|
