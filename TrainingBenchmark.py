@@ -52,7 +52,8 @@ if version_str_list[0] == "0":
     min_version = eval(version_str_list[1])
     model_dict = basic_model_dict
     if min_version < 8:
-        raise ValueError(f"This version is not supported: {torchvision.__version__}")
+        raise RuntimeWarning(f"Version: {torchvision.__version__} has not been fully tested, "
+                             f"which may lead to unexpected ERRORs")
     elif min_version == 8:
         pass
     else:
