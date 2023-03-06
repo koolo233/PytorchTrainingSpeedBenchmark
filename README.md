@@ -78,3 +78,4 @@ cmd：```python TrainingBenchmark.py {-m} {-b} {-s}```
 |WideResNet50| Tesla P40                   |63.7576|224|10936.8291|64|0.6456|0.14|
 |MNASNet| Tesla P40                   |2.9708|224|324.6611|64|0.1877|0.14|
 |ResNet18| NVIDIA GeForce RTX 3050     |10.6636|32|35.5439|64|0.0183|0.14|
+|ResNet18|GeForce RTX 3050 Laptop GPU|10.6636|32|35.5439|64|0.0183|0.14|
