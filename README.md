@@ -85,3 +85,10 @@ cmd：```python TrainingBenchmark.py {-m} {-b} {-s}```
 |MobileNetV3_s|Tesla P40|1.4573|224|59.9614|64|0.0614|0.14|
 |EfficientNet_B7|Tesla P40|60.8564|224|5135.0641|32|0.9634|0.14|
 |ResNet18|GeForce RTX 3050 Laptop GPU|10.6636|32|35.5439|64|0.0183|0.14|
+|EfficientNet_B0|Tesla P40|3.8341|224|401.1205|64|0.2787|0.14|
+|ResNet50|Tesla P40|22.4385|224|3950.9077|64|0.3815|0.14|
+|EfficientNet_B1|Tesla P40|6.2237|224|590.0129|64|0.3917|0.14|
+|EfficientNet_B2|Tesla P40|7.3577|224|677.4029|64|0.4158|0.14|
+|EfficientNet_B3|Tesla P40|10.2154|224|983.3119|64|0.5467|0.14|
+|EfficientNet_B4|Tesla P40|16.7528|224|1519.9863|64|0.7364|0.14|
+|EfficientNet_B5|Tesla P40|27.0474|224|2366.1147|64|1.0182|0.14|
