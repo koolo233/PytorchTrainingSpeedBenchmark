@@ -2,3 +2,4 @@
 data/
 log/
 lightning_logs/
+utils/__pycache__/
