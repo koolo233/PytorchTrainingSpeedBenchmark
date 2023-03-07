@@ -101,3 +101,5 @@ cmd：```python TrainingBenchmark.py {-m} {-b} {-s}```
 |EfficientNetV2_s|Tesla P40|19.2550|224|2777.8542|64|0.4861|0.14|
 |EfficientNetV2_m|Tesla P40|50.4219|224|5211.5523|64|0.8486|0.14|
 |EfficientNetV2_l|Tesla P40|111.8155|224|11837.2903|32|0.8739|0.14|
+|ResNeXt101_64|Tesla P40|77.6546|224|14891.0430|64|1.5880|0.14|
+|Swin_s|Tesla P40|46.5822|224|8361.6372|64|0.9338|0.14|
