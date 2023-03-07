@@ -1,3 +1,5 @@
+import os
+import sys
 import time
 import random
 import argparse
@@ -13,7 +15,7 @@ import torch.optim as optim
 from pytorch_lightning import Trainer
 from torch.utils.data import DataLoader, Dataset
 from pytorch_lightning import LightningModule
-from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.callbacks import TQDMProgressBar
 
 
@@ -87,11 +89,11 @@ class BenchmarkSystem(LightningModule):
         images = torch.squeeze(images, dim=0)
         labels = torch.squeeze(labels, dim=0)
         if self.model_type == "InceptionV3":
-            outputs, auxs = self.net(images)
+            outputs, auxs = self(images)
         elif self.model_type == "GoogleNet":
-            outputs, auxs1, auxs2 = self.net(labels)
+            outputs, auxs1, auxs2 = self(labels)
         else:
-            outputs = self.net(images)
+            outputs = self(images)
         loss = self.criterion(outputs, labels)
         return loss
 
@@ -119,6 +121,12 @@ def main(args):
                                                      random_str)
 
     num_gpus = len(args.gpu_ids.split(","))
+    args.batch_size = int(args.batch_size / num_gpus)
+
+    if sys.platform == "win32":
+        ddp_backend = "gloo"
+    else:
+        ddp_backend = None
 
     trainer = Trainer(
         max_steps=args.max_step,
@@ -130,8 +138,10 @@ def main(args):
         devices=num_gpus,
         benchmark=True,
         profiler="simple" if num_gpus == 1 else None,
-        strategy=DDPPlugin(find_unused_parameters=False) if num_gpus > 1 else None,
+        strategy=DDPStrategy(find_unused_parameters=False, process_group_backend=ddp_backend) if num_gpus > 1 else None,
     )
+
+    args.max_step = args.max_step * num_gpus
 
     system = BenchmarkSystem(args)
 
@@ -175,7 +185,5 @@ def main(args):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-
-    import os
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
     main(args=args)
