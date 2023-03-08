@@ -205,6 +205,7 @@ if __name__ == "__main__":
 
     print("-------------------------\n--- PARAMs & FLOPs --- \n-------------------------")
     test_tensor = torch.rand([2, 3, args.input_size, args.input_size]).to(device)
+    print(torch.typename(test_tensor))
     flops = FlopCountAnalysis(net, test_tensor).total() / 2
     params = parameter_count(net)[""]
     with open(log_file_name, "a") as f:

@@ -84,3 +84,5 @@ cmd：```python TrainingBenchmark.py {-m} {-b} {-s}```
 |MobileNetV3_l|Tesla P40|4.0196|224|226.9421|64|0.1548|0.14|
 |MobileNetV3_s|Tesla P40|1.4573|224|59.9614|64|0.0614|0.14|
 |EfficientNet_B7|Tesla P40|60.8564|224|5135.0641|32|0.9634|0.14|
+|ResNet18|NVIDIA GeForce MX330|10.6636|32|35.5439|64|0.1112|0.14|
+|ResNet50|NVIDIA GeForce MX330|22.4385|32|80.6499|64|0.2850|0.14|
