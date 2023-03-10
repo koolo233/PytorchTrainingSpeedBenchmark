@@ -28,8 +28,8 @@ cmd：```python TrainingBenchmark.py {-m} {-b} {-s}```
 
 例如，若想指定1卡用于训练：```CUDA_VISIBLE_DEVICES=1 TrainingBenchmark.py {-m} {-b} {-s}```
 
-| MODEL       | DEVICE           | PARAMs/MB | INPUT SIZE | FLOPs/MB | BATCH_SIZE | TIME EACH STEP / s | VERSION  |
-|-------------|------------------|-----------|------------|----------|------------|--------------------|----------|
+| MODEL       | DEVICE           | PARAMs/MB | INPUT SIZE | FLOPs | BATCH_SIZE | TIME EACH STEP / s | VERSION  |
+|-------------|------------------|-----------|------------|----------|-----------|--------------------|----------|
 |VIT_b_32|Tesla P40|83.4111|224|4208.7803|64|0.2830|0.14|
 |ResNet50|Tesla P40|22.4385|32|80.6499|64|0.0490|0.14|
 |ResNet101|Tesla P40|40.5509|32|153.3979|64|0.0879|0.14|
