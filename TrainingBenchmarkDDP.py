@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import random
+import warnings
 import argparse
 import numpy as np
 from fvcore.nn import FlopCountAnalysis, parameter_count
@@ -17,6 +18,9 @@ from torch.utils.data import DataLoader, Dataset
 from pytorch_lightning import LightningModule
 from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.callbacks import TQDMProgressBar
+from pytorch_lightning.utilities.warnings import PossibleUserWarning
+
+warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
 
 parser = argparse.ArgumentParser(description='Params of Benchmark')
@@ -67,11 +71,26 @@ class BenchmarkSystem(LightningModule):
         # ----------------------
         self.criterion = nn.CrossEntropyLoss()
 
+        self.fit_begin_time = None
+        self.fit_end_time = None
+        self.train_begin_time = None
+        self.train_end_time = None
+
+        # --------------
+        # --- others ---
+        # --------------
+        self.max_step = args.max_step
+        self.gpus = args.gpus
+        self.batch_size = args.batch_size
+        self.input_size = args.input_size
+        self.log_file_name = args.log_file_name
+        self.model_type = args.model_type
+
     def train_dataloader(self):
         return DataLoader(
             dataset=self.dataset,
             shuffle=False,
-            num_workers=1,
+            num_workers=4,
             batch_size=1,
             pin_memory=True
         )
@@ -97,6 +116,54 @@ class BenchmarkSystem(LightningModule):
         loss = self.criterion(outputs, labels)
         return loss
 
+    def on_fit_start(self):
+        if self.global_rank == 0:
+            self.fit_begin_time = time.time()
+
+    def on_fit_end(self):
+        if self.global_rank == 0:
+            self.fit_end_time = time.time()
+
+            version_str = ".".join(self.version_str_list)
+            avg_step_time = (self.fit_end_time - self.fit_begin_time) / self.max_step
+
+            print("-------------------------\n--- PARAMs & FLOPs --- \n-------------------------")
+            test_tensor = torch.rand([2, 3, self.input_size, self.input_size]).to(self.device)
+            flops = FlopCountAnalysis(self.net, test_tensor).total() / 2
+            params = parameter_count(self.net)[""]
+            with open(self.log_file_name, "a") as f:
+                log_str = "PARAMS: {:.4f}MB, FLOPS: {:.4f}\n".format(params / (1024 ** 2), flops / (1024 ** 2))
+                print(log_str)
+                f.write(log_str)
+
+            print("-------------------------\n----- DEVICE ----- \n-------------------------")
+            device_name_dict = dict()
+            for _id in range(torch.cuda.device_count()):
+                p = torch.cuda.get_device_properties(_id)
+                info = f"CUDA:{_id} ({p.name}, {p.total_memory / (1 << 20):.0f}MiB)\n"
+                if p.name not in device_name_dict:
+                    device_name_dict[p.name] = 1
+                else:
+                    device_name_dict[p.name] += 1
+                print(info)
+                with open(self.log_file_name, "a") as f:
+                    f.write(info)
+
+            device_name = ""
+            for key, item in device_name_dict.items():
+                device_name += f"{item} X {key} "
+
+            print("-------------------------\n----- EACH STEP ----- \n-------------------------")
+            with open(self.log_file_name, "a") as f:
+                avg_step_str = "Avg time for each step {:.4f}s".format(avg_step_time)
+                print(avg_step_str)
+                f.write(avg_step_str + "\n")
+
+            with open("./README.md", "a") as f:
+                str_1 = f"\n|{self.model_type}|{device_name}|{params / (1024 ** 2):.4f}|{args.input_size}"
+                str_2 = f"|{flops / (1024 ** 2):.4f}|{self.batch_size}|{avg_step_time:.4f}|{version_str}|"
+                f.write(str_1 + str_2)
+
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -121,7 +188,6 @@ def main(args):
                                                      random_str)
 
     num_gpus = len(args.gpu_ids.split(","))
-    args.batch_size = int(args.batch_size / num_gpus)
 
     if sys.platform == "win32":
         ddp_backend = "gloo"
@@ -142,45 +208,12 @@ def main(args):
     )
 
     args.max_step = args.max_step * num_gpus
+    args.gpus = args.gpu_ids.split(",")
+    args.log_file_name = log_file_name
 
     system = BenchmarkSystem(args)
 
-    version_str = ".".join(system.version_str_list)
-    training_begin_time = time.time()
     trainer.fit(system)
-    training_end_time = time.time()
-    avg_step_time = (training_end_time - training_begin_time) / args.max_step
-
-    print("-------------------------\n--- PARAMs & FLOPs --- \n-------------------------")
-    test_tensor = torch.rand([2, 3, args.input_size, args.input_size])
-    flops = FlopCountAnalysis(system.net, test_tensor).total() / 2
-    params = parameter_count(system.net)[""]
-    with open(log_file_name, "a") as f:
-        log_str = "PARAMS: {:.4f}MB, FLOPS: {:.4f}MB\n".format(params / (1024 ** 2), flops / (1024 ** 2))
-        print(log_str)
-        f.write(log_str)
-
-    print("-------------------------\n----- DEVICE ----- \n-------------------------")
-    device_name = None
-    for _id in range(torch.cuda.device_count()):
-        p = torch.cuda.get_device_properties(_id)
-        info = f"CUDA:{_id} ({p.name}, {p.total_memory / (1 << 20):.0f}MiB)\n"
-        if _id == 0:
-            device_name = p.name
-        print(info)
-        with open(log_file_name, "a") as f:
-            f.write(info)
-
-    print("-------------------------\n----- EACH STEP ----- \n-------------------------")
-    with open(log_file_name, "a") as f:
-        avg_step_str = "Avg time for each step {:.4f}s".format(avg_step_time)
-        print(avg_step_str)
-        f.write(avg_step_str + "\n")
-
-    with open("./README.md", "a") as f:
-        str_1 = f"\n|{args.model_type}|{device_name}|{params / (1024 ** 2):.4f}|{args.input_size}"
-        str_2 = f"|{flops / (1024 ** 2):.4f}|{args.batch_size}|{avg_step_time:.4f}|{version_str}|"
-        f.write(str_1 + str_2)
 
 
 if __name__ == "__main__":
