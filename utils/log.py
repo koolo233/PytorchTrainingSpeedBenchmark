@@ -17,3 +17,4 @@ def generate_random_str(length=30):
 
         # 打乱密码顺序
         random.shuffle(password)
+    return "".join(password)

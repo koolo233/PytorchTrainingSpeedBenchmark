@@ -12,8 +12,10 @@ from utils.log import generate_random_str
 
 import torch
 from torch import nn
+import torchvision
 import torch.optim as optim
 from pytorch_lightning import Trainer
+import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 from pytorch_lightning import LightningModule
 from pytorch_lightning.strategies import DDPStrategy
@@ -30,6 +32,7 @@ parser.add_argument("-b", "--batch_size", type=int, default=64)
 parser.add_argument("-s", "--input_size", type=int, default=32)
 parser.add_argument("--gpu_ids", type=str, default="0")
 parser.add_argument("--max_step", type=int, default=800)
+parser.add_argument("--true_data", help="using CIFAR10", action='store_true')
 
 
 class MyDataSet(Dataset):
@@ -52,6 +55,13 @@ class BenchmarkSystem(LightningModule):
     def __init__(self, args):
         super().__init__()
 
+        self.gpus = args.gpus
+        self.max_step = int(args.max_step / len(self.gpus))
+        self.batch_size = args.batch_size
+        self.input_size = args.input_size
+        self.log_file_name = args.log_file_name
+        self.model_type = args.model_type
+
         # model
         self.model_type = args.model_type
         model_dict, self.version_str_list = torchvision_model_dict()
@@ -64,36 +74,45 @@ class BenchmarkSystem(LightningModule):
         # ------------
         # --- data ---
         # ------------
-        self.dataset = MyDataSet(args.batch_size, args.input_size, args.max_step)
+        self.true_data = args.true_data
+        if self.true_data:
+            image_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+            self.dataset = torchvision.datasets.CIFAR10(
+                root='./data/',
+                train=True,
+                transform=image_transforms,
+                download=True)
+            self.max_step = min(self.max_step, int(len(self.dataset)/(self.batch_size * len(self.gpus))))
+        else:
+            self.dataset = MyDataSet(args.batch_size, args.input_size, args.max_step)
 
         # ----------------------
         # --- loss functions ---
         # ----------------------
         self.criterion = nn.CrossEntropyLoss()
 
-        self.fit_begin_time = None
-        self.fit_end_time = None
-        self.train_begin_time = None
-        self.train_end_time = None
-
-        # --------------
-        # --- others ---
-        # --------------
-        self.max_step = args.max_step
-        self.gpus = args.gpus
-        self.batch_size = args.batch_size
-        self.input_size = args.input_size
-        self.log_file_name = args.log_file_name
-        self.model_type = args.model_type
+        self.count_begin_time = None
+        self.count_end_time = None
+        self.count_begin_idx = max(0, self.max_step - 5)
+        self.count_end_idx = self.max_step-1
 
     def train_dataloader(self):
-        return DataLoader(
-            dataset=self.dataset,
-            shuffle=False,
-            num_workers=4,
-            batch_size=1,
-            pin_memory=True
-        )
+        if self.true_data:
+            return DataLoader(
+                dataset=self.dataset,
+                shuffle=True,
+                num_workers=3,
+                batch_size=self.batch_size,
+                pin_memory=False
+            )
+        else:
+            return DataLoader(
+                dataset=self.dataset,
+                shuffle=False,
+                num_workers=0,
+                batch_size=1,
+                pin_memory=True
+            )
 
     def forward(self, batch_imgs):
         res = self.net(batch_imgs)
@@ -103,7 +122,7 @@ class BenchmarkSystem(LightningModule):
         optimizer = optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
         return {"optimizer": optimizer}
 
-    def training_step(self, batch, batch_nb):
+    def training_step(self, batch, batch_idx):
         images, labels = batch
         images = torch.squeeze(images, dim=0)
         labels = torch.squeeze(labels, dim=0)
@@ -114,18 +133,20 @@ class BenchmarkSystem(LightningModule):
         else:
             outputs = self(images)
         loss = self.criterion(outputs, labels)
-        return loss
 
-    def on_fit_start(self):
         if self.global_rank == 0:
-            self.fit_begin_time = time.time()
+            if batch_idx == self.count_begin_idx:
+                self.count_begin_time = time.time()
+
+            if batch_idx == self.count_end_idx:
+                self.count_end_time = time.time()
+        return loss
 
     def on_fit_end(self):
         if self.global_rank == 0:
-            self.fit_end_time = time.time()
 
             version_str = ".".join(self.version_str_list)
-            avg_step_time = (self.fit_end_time - self.fit_begin_time) / self.max_step
+            avg_step_time = (self.count_end_time - self.count_begin_time) / (self.count_end_idx - self.count_begin_idx)
 
             print("-------------------------\n--- PARAMs & FLOPs --- \n-------------------------")
             test_tensor = torch.rand([2, 3, self.input_size, self.input_size]).to(self.device)
@@ -159,8 +180,12 @@ class BenchmarkSystem(LightningModule):
                 print(avg_step_str)
                 f.write(avg_step_str + "\n")
 
+                avg_img_each_s = "Avg img n in 1s {:.4f}img/s".format(self.batch_size * len(self.gpus)/avg_step_time)
+                print(avg_img_each_s)
+                f.write(avg_img_each_s)
+
             with open("./README.md", "a") as f:
-                str_1 = f"\n|{self.model_type}|{device_name}|{params / (1024 ** 2):.4f}|{args.input_size}"
+                str_1 = f"\n|{self.model_type}|{device_name}|{params / (1024 ** 2):.4f}|{self.input_size}"
                 str_2 = f"|{flops / (1024 ** 2):.4f}|{self.batch_size}|{avg_step_time:.4f}|{version_str}|"
                 f.write(str_1 + str_2)
 
@@ -196,7 +221,7 @@ def main(args):
 
     trainer = Trainer(
         max_steps=args.max_step,
-        max_epochs=-1,
+        max_epochs=1,
         callbacks=[pbar],
         limit_val_batches=0.0,
         enable_model_summary=False,
